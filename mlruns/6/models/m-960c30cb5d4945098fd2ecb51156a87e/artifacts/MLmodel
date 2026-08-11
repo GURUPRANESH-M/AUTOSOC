@@ -1,0 +1,23 @@
+artifact_path: file:D:/PROJECT WORKKKKKKKKKK/mlruns/6/models/m-960c30cb5d4945098fd2ecb51156a87e/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.14.6
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.13.0+cpu
+mlflow_version: 3.15.1
+model_id: m-960c30cb5d4945098fd2ecb51156a87e
+model_size_bytes: 15827
+model_uuid: m-960c30cb5d4945098fd2ecb51156a87e
+prompts: null
+run_id: 34889075c1b44392bb18d9b02c53c469
+utc_time_created: '2026-08-10 16:43:08.922260'

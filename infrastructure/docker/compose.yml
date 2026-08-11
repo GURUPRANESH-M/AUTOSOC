@@ -1,0 +1,176 @@
+version: '3.8'
+
+services:
+  ingestion-worker:
+    build:
+      context: ../../workers/ingestion
+      dockerfile: Dockerfile
+    container_name: autosoc-ingestion
+    restart: unless-stopped
+    environment:
+      - REDPANDA_BROKERS=redpanda:9092
+      - MINIO_ENDPOINT=minio:9000
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    ports:
+      - "8001:8000" # HTTP API
+      - "5140:5140/udp" # Syslog UDP
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: autosoc-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+      - "9644:9644"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: autosoc-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: autosoc-minio
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: autosoc-opensearch
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  normalization-worker:
+    build:
+      context: ../../workers/normalization
+      dockerfile: Dockerfile
+    container_name: autosoc-normalization
+    restart: unless-stopped
+    environment:
+      - REDPANDA_BROKERS=redpanda:9092
+      - OPENSEARCH_HOSTS=http://opensearch:9200
+      - ENVIRONMENT=development
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+
+  detection-worker:
+    build:
+      context: ../../workers/detection
+      dockerfile: Dockerfile
+    container_name: autosoc-detection
+    restart: unless-stopped
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - REDIS_URL=redis://redis:6379/1
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/autosoc
+      - RULES_DIR=/app/rules
+    ports:
+      - "8002:8000" # Health API
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  correlation-worker:
+    build:
+      context: ../../workers/correlation
+      dockerfile: Dockerfile
+    container_name: autosoc-correlation
+    restart: unless-stopped
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - REDIS_URL=redis://redis:6379/2
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/autosoc
+      - CORRELATION_RULES_DIR=/app/rules/correlation
+    ports:
+      - "8003:8000" # Health API
+    volumes:
+      - ../../.agents/rules:/app/rules
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  prediction-worker:
+    build:
+      context: ../../workers/prediction
+      dockerfile: Dockerfile
+    container_name: autosoc-prediction
+    restart: unless-stopped
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - INCIDENTS_TOPIC=security.incidents
+      - PREDICTIONS_TOPIC=security.predictions
+      - DATABASE_URL=postgresql+asyncpg://autosoc_user:autosoc_password@postgres:5432/autosoc
+      - PYTHONPATH=/app
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  agent-worker:
+    build:
+      context: ../../workers/agents
+      dockerfile: Dockerfile
+    container_name: autosoc-agent
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://autosoc_user:autosoc_password@postgres:5432/autosoc
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - opensearch

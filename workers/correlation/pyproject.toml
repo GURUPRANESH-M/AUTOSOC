@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "autosoc-correlation"
+version = "0.1.0"
+description = "AutoSOC Alert Correlation Worker"
+authors = ["AutoSOC Team"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastkafka = "*"
+pydantic = "*"
+pyyaml = "*"
+redis = "*"
+autosoc-schemas = {path = "../../packages/event-schemas", develop = true}
+autosoc-database = {path = "../../packages/database", develop = true}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
