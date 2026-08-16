@@ -1,10 +1,42 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:15
+    container_name: autosoc-postgres
+    environment:
+      - POSTGRES_USER=autosoc_user
+      - POSTGRES_PASSWORD=autosoc_password
+      - POSTGRES_DB=autosoc
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autosoc_user -d autosoc"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0.1
+    container_name: autosoc-keycloak
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/autosoc
+      - KC_DB_USERNAME=autosoc_user
+      - KC_DB_PASSWORD=autosoc_password
+    command: start-dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   ingestion-worker:
     build:
-      context: ../../workers/ingestion
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: workers/ingestion/Dockerfile
     container_name: autosoc-ingestion
     restart: unless-stopped
     environment:
@@ -89,8 +121,8 @@ services:
 
   normalization-worker:
     build:
-      context: ../../workers/normalization
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: workers/normalization/Dockerfile
     container_name: autosoc-normalization
     restart: unless-stopped
     environment:
@@ -105,14 +137,14 @@ services:
 
   detection-worker:
     build:
-      context: ../../workers/detection
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: workers/detection/Dockerfile
     container_name: autosoc-detection
     restart: unless-stopped
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
       - REDIS_URL=redis://redis:6379/1
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/autosoc
+      - DATABASE_URL=postgresql+asyncpg://autosoc_user:autosoc_password@postgres:5432/autosoc
       - RULES_DIR=/app/rules
     ports:
       - "8002:8000" # Health API
@@ -124,14 +156,14 @@ services:
 
   correlation-worker:
     build:
-      context: ../../workers/correlation
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: workers/correlation/Dockerfile
     container_name: autosoc-correlation
     restart: unless-stopped
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
       - REDIS_URL=redis://redis:6379/2
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/autosoc
+      - DATABASE_URL=postgresql+asyncpg://autosoc_user:autosoc_password@postgres:5432/autosoc
       - CORRELATION_RULES_DIR=/app/rules/correlation
     ports:
       - "8003:8000" # Health API
@@ -145,8 +177,8 @@ services:
 
   prediction-worker:
     build:
-      context: ../../workers/prediction
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: workers/prediction/Dockerfile
     container_name: autosoc-prediction
     restart: unless-stopped
     environment:
@@ -163,8 +195,8 @@ services:
 
   agent-worker:
     build:
-      context: ../../workers/agents
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: workers/agents/Dockerfile
     container_name: autosoc-agent
     restart: unless-stopped
     environment:

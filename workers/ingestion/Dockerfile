@@ -1,9 +1,10 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
 # Install uv for fast dependency resolution
 RUN pip install uv
+ENV UV_PREVIEW=1
 
 # Copy schemas package and ingestion worker
 COPY packages/event-schemas /packages/event-schemas

@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir hatchling
 
 # Copy project files
-COPY pyproject.toml ./
-COPY src/ ./src/
+COPY workers/agents/pyproject.toml ./
+COPY workers/agents/src/ ./src/
 
 # Install the package
 RUN pip install --no-cache-dir -e .

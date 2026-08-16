@@ -14,10 +14,10 @@ if (-Not (Test-Path ".env")) {
 
 # 2. Infrastructure
 Write-Host "Starting Infrastructure via Docker Compose..."
-docker-compose up -d
+docker compose -f infrastructure/docker/compose.yml up -d
 
-Write-Host "Waiting for database to be ready..."
-Start-Sleep -Seconds 15
+Write-Host "Waiting for database to be ready (30 seconds)..."
+Start-Sleep -Seconds 30
 
 # 3. Database Migrations
 Write-Host "Running Database Migrations..."
