@@ -35,3 +35,6 @@ build-backend = "hatchling.build"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.hatch.build.targets.wheel]
+packages = ["autosoc_ml"]

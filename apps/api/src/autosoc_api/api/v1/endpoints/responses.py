@@ -5,8 +5,8 @@ from pydantic import UUID4
 from datetime import datetime, UTC, timedelta
 
 from autosoc_api.api import dependencies
-from autosoc_api.auth.dependencies import get_current_active_user, require_permissions
-from autosoc_api.auth.models import User
+from autosoc_api.auth.dependencies import get_current_principal, require_permission
+from autosoc_api.auth.models import Principal
 from autosoc_api.db.models.response import ResponseRecommendation, ResponseApproval, ResponseExecution
 from autosoc_api.schemas.response import (
     ResponseRecommendationCreate, ResponseRecommendationResponse,
@@ -22,7 +22,7 @@ def create_recommendation(
     incident_id: UUID4,
     recommendation_in: ResponseRecommendationCreate,
     db: Session = Depends(dependencies.get_db),
-    current_user: User = Depends(require_permissions(["responses:recommend"]))
+    current_user: Principal = Depends(require_permission("responses:recommend"))
 ) -> Any:
     """
     Create a new response recommendation.
@@ -43,7 +43,7 @@ def create_recommendation(
 def list_recommendations(
     incident_id: UUID4,
     db: Session = Depends(dependencies.get_db),
-    current_user: User = Depends(require_permissions(["responses:read"]))
+    current_user: Principal = Depends(require_permission("responses:read"))
 ) -> Any:
     """
     List response recommendations for an incident.
@@ -54,7 +54,7 @@ def list_recommendations(
 def request_approval(
     recommendation_id: UUID4,
     db: Session = Depends(dependencies.get_db),
-    current_user: User = Depends(require_permissions(["responses:recommend"]))
+    current_user: Principal = Depends(require_permission("responses:recommend"))
 ) -> Any:
     """
     Request approval for a proposed recommendation.
@@ -83,7 +83,7 @@ def approve_recommendation(
     recommendation_id: UUID4,
     action: ResponseApprovalAction,
     db: Session = Depends(dependencies.get_db),
-    current_user: User = Depends(require_permissions(["responses:approve"]))
+    current_user: Principal = Depends(require_permission("responses:approve"))
 ) -> Any:
     """
     Approve or reject a recommendation.
@@ -125,7 +125,7 @@ def execute_recommendation(
     recommendation_id: UUID4,
     execution_in: ResponseExecutionCreate,
     db: Session = Depends(dependencies.get_db),
-    current_user: User = Depends(require_permissions(["responses:execute"]))
+    current_user: Principal = Depends(require_permission("responses:execute"))
 ) -> Any:
     """
     Execute a response (dry-run, simulation, analyst_approved_execution).
@@ -176,7 +176,7 @@ def execute_recommendation(
 def rollback_execution(
     execution_id: UUID4,
     db: Session = Depends(dependencies.get_db),
-    current_user: User = Depends(require_permissions(["responses:execute"]))
+    current_user: Principal = Depends(require_permission("responses:execute"))
 ) -> Any:
     """
     Request rollback of a completed execution.

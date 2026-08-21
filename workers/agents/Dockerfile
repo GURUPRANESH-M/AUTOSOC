@@ -1,25 +1,14 @@
-FROM python:3.11-slim-bookworm
-
+FROM python:3.12-slim-bookworm
 WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install uv (using pip for simplicity)
-RUN pip install --no-cache-dir hatchling
-
-# Copy project files
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+RUN pip install uv
+ENV UV_PREVIEW=1
+COPY packages /app/packages
+COPY apps/api /app/apps/api
+WORKDIR /app/workers/agents
 COPY workers/agents/pyproject.toml ./
 COPY workers/agents/src/ ./src/
-
-# Install the package
-RUN pip install --no-cache-dir -e .
-
+RUN uv pip install --system -e .
 ENV ENVIRONMENT=development
-ENV PYTHONPATH=/app/src
-
-# We will run this via a simple script or FastAPI for polling
-# Since MVP uses HTTP for triggering, we can expose a FastAPI app here or just poll
+ENV PYTHONPATH=/app/workers/agents/src:/app/apps/api/src
 CMD ["python", "-m", "autosoc_agents.main"]

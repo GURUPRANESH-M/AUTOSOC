@@ -79,5 +79,5 @@ class IncidentAttackMapping(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    incident = relationship("Incident", backref="attack_mappings")
+    incident = relationship("Incident", back_populates="attack_mappings")
     technique = relationship("AttackTechnique")

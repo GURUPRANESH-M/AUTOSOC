@@ -12,7 +12,8 @@ dependencies = [
     "redis",
     "minio",
     "autosoc-schemas",
-    "autosoc-api"
+    "autosoc-api",
+    "prometheus-client"
 ]
 
 [build-system]

@@ -41,3 +41,7 @@ class DataSource(Base, UUIDMixin, TimestampMixin):
     last_failure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failure_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     success_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    @property
+    def status(self) -> str:
+        return self.health_state.value

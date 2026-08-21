@@ -12,12 +12,41 @@ logger = logging.getLogger("autosoc_correlation.main")
 
 # We mock Kafka connection handling similarly to detection worker
 app = FastKafka(
-    kafka_brokers={"default": {"url": "localhost:9092", "description": "Local Redpanda broker"}},
+    kafka_brokers={"localhost": {"url": "redpanda", "port": 9092, "description": "Local Redpanda broker"}},
 )
 
 setup_consumer(app)
 publish_incident = setup_publisher(app)
 
+class CorrelationWorker:
+    def __init__(self, fastkafka_app: FastKafka):
+        self.app = fastkafka_app
+        self._running = False
+
+    async def run(self):
+        self._running = True
+        logger.info("AutoSOC Correlation Worker Starting...")
+        try:
+            async with self.app:
+                while self._running:
+                    await asyncio.sleep(1)
+        finally:
+            self._running = False
+
+    async def stop(self):
+        self._running = False
+
+async def main():
+    worker = CorrelationWorker(app)
+    try:
+        await worker.run()
+    except asyncio.CancelledError:
+        pass
+    finally:
+        await worker.stop()
+
 if __name__ == "__main__":
-    logger.info("AutoSOC Correlation Worker Starting...")
-    # asyncio.run(app.run())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("AutoSOC Correlation Worker shutting down...")

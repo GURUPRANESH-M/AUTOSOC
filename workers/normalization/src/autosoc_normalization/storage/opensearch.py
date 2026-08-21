@@ -19,50 +19,48 @@ class OpenSearchStorage:
         """
         template = {
             "index_patterns": [f"{self.index_name_prefix}-*"],
-            "template": {
-                "settings": {
-                    "number_of_shards": 1,
-                    "number_of_replicas": 0
-                },
-                "mappings": {
-                    "dynamic": "strict", # Explicit mappings only
-                    "properties": {
-                        "event_id": {"type": "keyword"},
-                        "normalized_event_id": {"type": "keyword"},
-                        "ingestion_id": {"type": "keyword"},
-                        "source_id": {"type": "keyword"},
-                        "source_type": {"type": "keyword"},
-                        "schema_version": {"type": "integer"},
-                        "event_time": {"type": "date"},
-                        "received_at": {"type": "date"},
-                        "normalized_at": {"type": "date"},
-                        "timestamp_quality": {"type": "keyword"},
-                        "event_category": {"type": "keyword"},
-                        "event_type": {"type": "keyword"},
-                        "event_action": {"type": "keyword"},
-                        "event_outcome": {"type": "keyword"},
-                        "severity_source": {"type": "keyword"},
-                        "message": {"type": "text"},
-                        "source_ip": {"type": "ip"},
-                        "destination_ip": {"type": "ip"},
-                        "source_port": {"type": "integer"},
-                        "destination_port": {"type": "integer"},
-                        "protocol": {"type": "keyword"},
-                        "username": {"type": "keyword"},
-                        "hostname": {"type": "keyword"},
-                        "process_name": {"type": "keyword"},
-                        "command_line": {"type": "text"},
-                        "raw_event_reference": {"type": "keyword"},
-                        "normalization_confidence": {"type": "keyword"},
-                        "normalization_warnings": {"type": "keyword"},
-                        
-                        # Enriched Fields
-                        "asset_environment": {"type": "keyword"},
-                        "asset_criticality": {"type": "keyword"},
-                        "geo_country": {"type": "keyword"},
-                        "ip_reputation_status": {"type": "keyword"},
-                        "candidate_mitre_techniques": {"type": "keyword"}
-                    }
+            "settings": {
+                "number_of_shards": 1,
+                "number_of_replicas": 0
+            },
+            "mappings": {
+                "dynamic": "strict", # Explicit mappings only
+                "properties": {
+                    "event_id": {"type": "keyword"},
+                    "normalized_event_id": {"type": "keyword"},
+                    "ingestion_id": {"type": "keyword"},
+                    "source_id": {"type": "keyword"},
+                    "source_type": {"type": "keyword"},
+                    "schema_version": {"type": "integer"},
+                    "event_time": {"type": "date"},
+                    "received_at": {"type": "date"},
+                    "normalized_at": {"type": "date"},
+                    "timestamp_quality": {"type": "keyword"},
+                    "event_category": {"type": "keyword"},
+                    "event_type": {"type": "keyword"},
+                    "event_action": {"type": "keyword"},
+                    "event_outcome": {"type": "keyword"},
+                    "severity_source": {"type": "keyword"},
+                    "message": {"type": "text"},
+                    "source_ip": {"type": "ip"},
+                    "destination_ip": {"type": "ip"},
+                    "source_port": {"type": "integer"},
+                    "destination_port": {"type": "integer"},
+                    "protocol": {"type": "keyword"},
+                    "username": {"type": "keyword"},
+                    "hostname": {"type": "keyword"},
+                    "process_name": {"type": "keyword"},
+                    "command_line": {"type": "text"},
+                    "raw_event_reference": {"type": "keyword"},
+                    "normalization_confidence": {"type": "keyword"},
+                    "normalization_warnings": {"type": "keyword"},
+                    
+                    # Enriched Fields
+                    "asset_environment": {"type": "keyword"},
+                    "asset_criticality": {"type": "keyword"},
+                    "geo_country": {"type": "keyword"},
+                    "ip_reputation_status": {"type": "keyword"},
+                    "candidate_mitre_techniques": {"type": "keyword"}
                 }
             }
         }

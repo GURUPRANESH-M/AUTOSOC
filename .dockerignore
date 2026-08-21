@@ -19,3 +19,15 @@ venv
 .pytest_cache
 .mypy_cache
 .ruff_cache
+
+**/node_modules
+**/.venv
+**/venv
+**/env
+
+mlruns
+data
+apps/web/node_modules
+apps/web/.next
+apps/api/.venv
+workers/*/.venv

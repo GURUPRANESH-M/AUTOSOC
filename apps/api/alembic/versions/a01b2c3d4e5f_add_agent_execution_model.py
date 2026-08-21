@@ -18,13 +18,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Create the Enum type first
-    op.execute("CREATE TYPE agentexecutionstatus AS ENUM ('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'BLOCKED_BY_POLICY')")
+    op.execute("DROP TYPE IF EXISTS agentexecutionstatus CASCADE")
+    # Drop the Enum type first to ensure create_table doesn't fail if it already exists from a failed migration
+    op.execute("DROP TYPE IF EXISTS agentexecutionstatus CASCADE")
 
     op.create_table('agent_executions',
         sa.Column('id', sa.UUID(), nullable=False),
         sa.Column('incident_id', sa.UUID(), nullable=False),
         sa.Column('workflow_type', sa.String(), nullable=True),
-        sa.Column('status', sa.Enum('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'BLOCKED_BY_POLICY', name='agentexecutionstatus'), nullable=True),
+        sa.Column('status', sa.Enum('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'BLOCKED_BY_POLICY', name='agentexecutionstatus', create_type=False), nullable=True),
         sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),

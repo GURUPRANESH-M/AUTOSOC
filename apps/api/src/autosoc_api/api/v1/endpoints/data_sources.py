@@ -7,7 +7,7 @@ from autosoc_api.db.session import get_db_session
 from autosoc_api.auth.models import Principal
 from autosoc_api.auth.dependencies import require_permission
 from autosoc_api.auth.permissions import Permissions
-from autosoc_api.schemas.data_source import DataSourceResponse, DataSourceCreate, DataSourceUpdate
+from autosoc_api.schemas.data_source import DataSourceResponse, DataSourceCreate, DataSourceUpdate, DataSourceListResponse
 from autosoc_api.services.audit_service import audit_service
 from autosoc_api.db.models.data_source import DataSource
 from autosoc_api.db.repositories.base import BaseRepository
@@ -15,14 +15,15 @@ from autosoc_api.db.repositories.base import BaseRepository
 router = APIRouter()
 ds_repo = BaseRepository(DataSource)
 
-@router.get("", response_model=List[DataSourceResponse])
+@router.get("", response_model=DataSourceListResponse)
 async def list_data_sources(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     principal: Principal = Depends(require_permission(Permissions.DATASOURCES_READ)),
     db: AsyncSession = Depends(get_db_session)
 ):
-    return await ds_repo.get_multi(db, skip=skip, limit=limit)
+    items = await ds_repo.get_multi(db, skip=skip, limit=limit)
+    return {"items": items, "total": len(items)}
 
 @router.post("", response_model=DataSourceResponse)
 async def create_data_source(

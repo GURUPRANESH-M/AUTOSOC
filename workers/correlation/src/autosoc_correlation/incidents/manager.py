@@ -2,15 +2,13 @@ import logging
 from typing import List, Dict, Any
 from datetime import datetime
 from autosoc_correlation.rules.rule_models import CorrelationRule
-from autosoc_database.models.incident import Incident, IncidentStatus, IncidentSeverity
-from autosoc_database.models.incident_alert import IncidentAlert
+from autosoc_api.db.models.incident import Incident, IncidentStatus, IncidentSeverity
+from autosoc_api.db.models.incident_alert import IncidentAlert
 from autosoc_schemas.events.incident import IncidentCreated, IncidentUpdated
 from sqlalchemy.orm import Session
 # Note: we should use async pg in real app, but for worker simplicity we could use a synchronous session
 # or async session depending on the database config used by the worker. We will mock the database insert for now 
-# and focus on publishing the message to Kafka.
-from autosoc_correlation.publisher import publish_incident
-from autosoc_correlation.main import app
+# focus on publishing the message to Kafka.
 
 logger = logging.getLogger(__name__)
 

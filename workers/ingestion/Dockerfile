@@ -1,20 +1,15 @@
 FROM python:3.12-slim-bookworm
-
 WORKDIR /app
-
-# Install uv for fast dependency resolution
 RUN pip install uv
 ENV UV_PREVIEW=1
-
-# Copy schemas package and ingestion worker
-COPY packages/event-schemas /packages/event-schemas
-COPY workers/ingestion /app
-
-# Install dependencies (schemas package is local)
-RUN uv pip install --system -e /packages/event-schemas
+COPY packages /app/packages
+COPY apps/api /app/apps/api
+WORKDIR /app/workers/ingestion
+COPY workers/ingestion/pyproject.toml .
+COPY workers/ingestion/src ./src
 RUN uv pip install --system -e .
-
+COPY workers/ingestion/ .
+ENV PYTHONPATH=/app/apps/api/src
 EXPOSE 8000
 EXPOSE 5140/udp
-
 CMD ["uvicorn", "autosoc_ingestion.main:app", "--host", "0.0.0.0", "--port", "8000"]

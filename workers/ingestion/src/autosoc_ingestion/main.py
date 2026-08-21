@@ -12,7 +12,7 @@ from autosoc_ingestion.deduplication.redis_dedup import DeduplicationService
 from autosoc_ingestion.services.pipeline import IngestionPipeline
 from autosoc_ingestion.services.rate_limiter import RateLimiterService
 from autosoc_ingestion.services.health_tracker import HealthTrackerService
-from autosoc_api.db.session import async_session_maker
+from autosoc_api.db.session import AsyncSessionLocal
 
 logger = logging.getLogger("ingestion.main")
 
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
 
     # We reuse the autosoc_api DB session factory since we're in the same monorepo
     async def get_db_session():
-        async with async_session_maker() as session:
+        async with AsyncSessionLocal() as session:
             yield session
             
     app.state.db_session_factory = get_db_session

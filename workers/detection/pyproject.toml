@@ -47,3 +47,6 @@ addopts = "-v --cov=autosoc_detection --cov-report=term-missing"
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+
+[tool.uv.sources]
+autosoc-schemas = { path = "../../packages/event-schemas" }

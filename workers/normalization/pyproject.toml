@@ -9,7 +9,7 @@ dependencies = [
     "pydantic-settings",
     "uvicorn",
     "aiokafka",
-    "opensearch-py",
+    "opensearch-py[async]",
     "httpx",
     "autosoc-schemas",
     "autosoc-api"

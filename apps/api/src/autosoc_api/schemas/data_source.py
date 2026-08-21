@@ -22,8 +22,13 @@ class DataSourceUpdate(BaseModel):
 
 class DataSourceResponse(DataSourceBase):
     id: UUID
+    status: str
     created_at: datetime
     updated_at: datetime
     
     class Config:
         from_attributes = True
+
+class DataSourceListResponse(BaseModel):
+    items: list[DataSourceResponse]
+    total: int

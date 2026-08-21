@@ -34,4 +34,4 @@ class Prediction(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    incident = relationship("Incident", backref="predictions")
+    incident = relationship("Incident", back_populates="predictions")

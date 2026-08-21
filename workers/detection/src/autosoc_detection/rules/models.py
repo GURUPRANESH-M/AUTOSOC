@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Dict, Any, Optional, Union, Literal
 
 class RuleCondition(BaseModel):
@@ -15,12 +15,14 @@ class RuleCondition(BaseModel):
     OR: Optional[List['RuleCondition']] = None
     NOT: Optional['RuleCondition'] = None
 
-    @validator('AND', 'OR', 'NOT', pre=True)
-    def check_mutually_exclusive(cls, v, values, field):
-        if v is not None:
-            if values.get('field') is not None:
+    @model_validator(mode='before')
+    @classmethod
+    def check_mutually_exclusive(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            has_logical = any(data.get(k) is not None for k in ['AND', 'OR', 'NOT'])
+            if has_logical and data.get('field') is not None:
                 raise ValueError("Cannot specify 'field' along with logical operators (AND/OR/NOT)")
-        return v
+        return data
 
 class ThresholdConfig(BaseModel):
     count: int = Field(gt=1, description="Number of events to match")
@@ -50,4 +52,4 @@ class RuleModel(BaseModel):
     # For Sigma subsets: raw sigma YAML dict may be stored here during conversion
     sigma_raw: Optional[Dict[str, Any]] = None
 
-RuleCondition.update_forward_refs()
+RuleCondition.model_rebuild()

@@ -13,6 +13,20 @@ if (-Not (Test-Path ".env")) {
 }
 
 # 2. Infrastructure
+Write-Host "Building Docker images sequentially to conserve memory..."
+$env:DOCKER_BUILDKIT="0"
+$env:COMPOSE_DOCKER_CLI_BUILD="0"
+
+$workers = @("ingestion-worker", "normalization-worker", "detection-worker", "correlation-worker", "prediction-worker", "agent-worker")
+foreach ($worker in $workers) {
+    Write-Host "Building $worker..." -ForegroundColor Cyan
+    docker compose -f infrastructure/docker/compose.yml build $worker
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Failed to build $worker. Aborting." -ForegroundColor Red
+        exit 1
+    }
+}
+
 Write-Host "Starting Infrastructure via Docker Compose..."
 docker compose -f infrastructure/docker/compose.yml up -d
 
