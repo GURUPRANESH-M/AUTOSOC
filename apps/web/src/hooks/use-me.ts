@@ -17,12 +17,12 @@ export function useMe() {
   return useQuery({
     queryKey: ["me"],
     queryFn: () =>
-      fetchApi<UserProfile>("/me", {
+      fetchApi<UserProfile>("/auth/me", {
         headers: {
           Authorization: `Bearer ${session?.accessToken}`,
         },
       }),
     enabled: status === "authenticated" && !!session?.accessToken,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 }

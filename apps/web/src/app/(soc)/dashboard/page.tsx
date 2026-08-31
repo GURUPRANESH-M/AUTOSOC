@@ -1,166 +1,148 @@
 "use client";
 
-import ReactECharts from "echarts-for-react";
+import React from "react";
 import { useDashboardSummary } from "@/hooks/use-dashboard";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { DashboardMetrics } from "@/components/dashboard/dashboard-metrics";
+import { EventTimeline } from "@/components/dashboard/event-timeline";
+import { EventCategories } from "@/components/dashboard/event-categories";
+import { EventSources } from "@/components/dashboard/event-sources";
+import { SecuritySummary } from "@/components/dashboard/security-summary";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Activity, Server, Shield } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { format } from "date-fns";
 
 export default function DashboardPage() {
-  const { data: summary, isLoading, isError } = useDashboardSummary();
+  const {
+    data: summary,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+    dataUpdatedAt,
+  } = useDashboardSummary();
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
+  // 1. Loading State
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400 animate-fade-in">SOC Dashboard</h1>
-        <div className="grid gap-4 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-xl bg-zinc-800/50 glass-card animate-pulse delay-100" />
+      <div className="space-y-6 font-mono">
+        {/* Header Skeleton */}
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-zinc-900 pb-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64 bg-zinc-900" />
+            <Skeleton className="h-4 w-96 bg-zinc-900" />
+          </div>
+          <Skeleton className="h-9 w-28 bg-zinc-900" />
+        </div>
+
+        {/* Metrics Grid Skeleton */}
+        <div className="grid gap-6 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28 bg-zinc-900 rounded-lg" />
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Skeleton className="h-[400px] rounded-xl bg-zinc-800/50 glass-card animate-pulse delay-200" />
-          <Skeleton className="h-[400px] rounded-xl bg-zinc-800/50 glass-card animate-pulse delay-300" />
+
+        {/* Charts & Table Skeleton */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Skeleton className="h-[400px] bg-zinc-900 rounded-lg" />
+          <Skeleton className="h-[400px] bg-zinc-900 rounded-lg" />
         </div>
       </div>
     );
   }
 
+  // 2. Error State
   if (isError || !summary) {
     return (
-      <div className="flex h-[400px] flex-col items-center justify-center rounded-xl border border-red-900/50 bg-red-950/20 text-red-500 glass-card animate-fade-in">
-        <AlertCircle className="mb-4 h-12 w-12 pulse-glow rounded-full" />
-        <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-orange-400">Failed to load dashboard data</h2>
-        <p className="text-sm mt-2 opacity-80">Please check your connection or backend API.</p>
+      <div className="flex h-[450px] flex-col items-center justify-center rounded-lg border border-red-900/40 bg-red-950/10 p-6 text-center font-mono">
+        <AlertCircle className="mb-4 h-12 w-12 text-red-500 animate-pulse" />
+        <h3 className="text-lg font-bold text-red-400">Unable to load security telemetry</h3>
+        <p className="text-xs text-zinc-500 max-w-sm mt-2 mb-6">
+          The dashboard request failed. Please verify that the API backend is active and that your session is valid.
+        </p>
+        <Button
+          onClick={handleRefresh}
+          className="bg-red-950/40 border border-red-900/60 hover:bg-red-900/30 text-red-400 text-xs px-4"
+        >
+          <RefreshCw className="mr-2 h-3.5 w-3.5" />
+          Retry Connection
+        </Button>
       </div>
     );
   }
 
-  const timelineOptions = {
-    tooltip: { trigger: "axis", backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', textStyle: { color: '#f8fafc' } },
-    xAxis: {
-      type: "category",
-      data: summary.timeline.map((t) => format(parseISO(t.time), "HH:mm")),
-      axisLabel: { color: "#94a3b8" },
-      axisLine: { lineStyle: { color: "#334155" } }
-    },
-    yAxis: { type: "value", axisLabel: { color: "#94a3b8" }, splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.05)" } } },
-    series: [
-      {
-        data: summary.timeline.map((t) => t.count),
-        type: "line",
-        smooth: 0.4,
-        symbol: "none",
-        lineStyle: { color: "#38bdf8", width: 3, shadowColor: "rgba(56, 189, 248, 0.5)", shadowBlur: 10 },
-        areaStyle: { 
-          color: {
-            type: 'linear',
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [{ offset: 0, color: 'rgba(56, 189, 248, 0.3)' }, { offset: 1, color: 'rgba(56, 189, 248, 0)' }]
-          }
-        },
-      },
-    ],
-  };
-
-  const categoryOptions = {
-    tooltip: { trigger: "item", backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', textStyle: { color: '#f8fafc' } },
-    series: [
-      {
-        name: "Categories",
-        type: "pie",
-        radius: ["50%", "75%"],
-        itemStyle: { borderRadius: 8, borderColor: "#020617", borderWidth: 4 },
-        label: { show: false },
-        data: summary.categories.map((c) => ({ value: c.count, name: c.category })),
-        color: ['#38bdf8', '#818cf8', '#34d399', '#fbbf24', '#f87171']
-      },
-    ],
-  };
+  // Derive counts
+  const totalEvents = summary.total_events_24h || 0;
+  const sourcesCount = summary.sources?.length || 0;
+  const categoriesCount = summary.categories?.length || 0;
 
   return (
-    <div className="space-y-8 animate-fade-in p-2">
-      <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">SOC Dashboard</h1>
+    <div className="space-y-6 font-mono">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-zinc-900 pb-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-100">
+            Security Operations Center
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1">
+            Real-time security monitoring and threat visibility
+          </p>
+        </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card className="glass-card border-none animate-slide-up">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Events (24h)</CardTitle>
-            <Activity className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.total_events_24h.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="glass-card border-none animate-slide-up delay-100">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Active Sources</CardTitle>
-            <Server className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.sources.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card border-none animate-slide-up delay-200">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Active Alerts</CardTitle>
-            <Shield className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">
-              <Link href="/alerts" className="hover:underline">View Alerts</Link>
+        <div className="flex items-center gap-4">
+          {dataUpdatedAt && (
+            <div className="text-[10px] text-zinc-600 text-right">
+              {isFetching ? (
+                <span className="text-zinc-500 animate-pulse">Synchronizing stream...</span>
+              ) : (
+                <span>Last updated: {format(new Date(dataUpdatedAt), "HH:mm:ss")}</span>
+              )}
             </div>
-            <p className="text-xs text-zinc-500 mt-1">Live from Phase 9 Detection Engine</p>
-          </CardContent>
-        </Card>
+          )}
 
-        <Card className="glass-card border-none animate-slide-up delay-300">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Incidents</CardTitle>
-            <Shield className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">
-              <Link href="/incidents" className="hover:underline">View Incidents</Link>
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">Live from Phase 12 Correlation</p>
-          </CardContent>
-        </Card>
+          <Button
+            onClick={handleRefresh}
+            disabled={isFetching}
+            variant="outline"
+            className="h-8 border-zinc-900 bg-zinc-950 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 text-xs px-3"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin text-indigo-400" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="glass-card border-none animate-slide-up delay-100">
-          <CardHeader>
-            <CardTitle>Event Volume</CardTitle>
-            <CardDescription className="text-zinc-400">Ingested events over the last 24 hours</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {summary.timeline.length > 0 ? (
-              <ReactECharts option={timelineOptions} style={{ height: "300px" }} theme="dark" opts={{ renderer: 'svg' }} />
-            ) : (
-              <div className="flex h-[300px] items-center justify-center text-zinc-500">No data available</div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Metrics Row */}
+      <DashboardMetrics
+        totalEvents24h={totalEvents}
+        activeSources={sourcesCount}
+        telemetryCategories={categoriesCount}
+      />
 
-        <Card className="glass-card border-none animate-slide-up delay-200">
-          <CardHeader>
-            <CardTitle>Category Distribution</CardTitle>
-            <CardDescription className="text-zinc-400">Events by normalized category</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {summary.categories.length > 0 ? (
-              <ReactECharts option={categoryOptions} style={{ height: "300px" }} theme="dark" opts={{ renderer: 'svg' }} />
-            ) : (
-              <div className="flex h-[300px] items-center justify-center text-zinc-500">No data available</div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Main Insights Grid */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Event Timeline */}
+        <div className="lg:col-span-2">
+          <EventTimeline timeline={summary.timeline || []} />
+        </div>
+
+        {/* Categories Distribution */}
+        <EventCategories categories={summary.categories || []} />
+
+        {/* Event Sources */}
+        <EventSources sources={summary.sources || []} />
       </div>
+
+      {/* Diagnostic Coverage Summary */}
+      <SecuritySummary
+        totalEvents24h={totalEvents}
+        sourcesCount={sourcesCount}
+        categoriesCount={categoriesCount}
+      />
     </div>
   );
 }

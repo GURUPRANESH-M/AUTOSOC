@@ -1,4 +1,4 @@
-import { fetchClient } from './fetch-client';
+import { fetchApi } from '../api';
 
 export interface PredictionTarget {
   target_type: string;
@@ -27,16 +27,19 @@ export interface PredictionResult {
   model_version: string;
   attack_version: string;
   confidence: string;
+  evidence?: string;
   limitations: string;
+  trace_id?: string;
+  schema_version?: string;
 }
 
 export const predictionApi = {
   getLatestPrediction: async (incidentId: string): Promise<PredictionResult> => {
-    return fetchClient(`/incidents/${incidentId}/predictions/latest`);
+    return fetchApi(`/incidents/${incidentId}/predictions/latest`);
   },
-  
-  recomputePrediction: async (incidentId: string): Promise<{status: string, message: string}> => {
-    return fetchClient(`/incidents/${incidentId}/predictions/recompute`, {
+
+  recomputePrediction: async (incidentId: string): Promise<{ status: string, message: string }> => {
+    return fetchApi(`/incidents/${incidentId}/predictions/recompute`, {
       method: 'POST',
     });
   }
