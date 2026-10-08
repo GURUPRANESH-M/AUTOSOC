@@ -4,25 +4,19 @@ import json
 import httpx
 from datetime import datetime, timezone
 import random
-
-from autosoc_api.db.session import AsyncSessionLocal
-from autosoc_api.db.models.data_source import DataSource, DataSourceType, DataSourceHealth
-from autosoc_api.db.models.incident import Incident, IncidentStatus
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-sys.path.insert(
-    0,
-    str(PROJECT_ROOT / "workers" / "ingestion" / "src")
-)
+sys.path.insert(0, str(PROJECT_ROOT / "workers" / "ingestion" / "src"))
+sys.path.insert(0, str(PROJECT_ROOT / "apps" / "api" / "src"))
 
-sys.path.insert(
-    0,
-    str(PROJECT_ROOT / "apps" / "api" / "src")
-)
+from autosoc_api.db.session import AsyncSessionLocal
+from autosoc_api.db.models.data_source import DataSource, DataSourceType, DataSourceHealth
+from autosoc_api.db.models.incident import Incident, IncidentStatus
 from autosoc_ingestion.services.auth import generate_api_key
+
 
 async def create_source(db):
     source_id = str(uuid.uuid4())

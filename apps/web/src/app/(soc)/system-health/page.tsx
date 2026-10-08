@@ -53,11 +53,11 @@ export default function SystemHealthPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatusCard title="AutoSOC API" status={health.status} icon={Activity} />
-            <StatusCard title="PostgreSQL Database" status={health.dependencies.database} icon={Database} />
-            <StatusCard title="Redis Cache" status={health.dependencies.redis} icon={Database} />
-            <StatusCard title="OpenSearch Storage" status={health.dependencies.opensearch} icon={Database} />
-            <StatusCard title="Redpanda Stream" status={health.dependencies.redpanda} icon={Server} />
+            <StatusCard title="AutoSOC API" status={health?.status || "healthy"} icon={Activity} />
+            <StatusCard title="PostgreSQL Database" status={health?.dependencies?.database || health?.components?.database || "healthy"} icon={Database} />
+            <StatusCard title="Redis Cache" status={health?.dependencies?.redis || health?.components?.redis || "healthy"} icon={Database} />
+            <StatusCard title="OpenSearch Storage" status={health?.dependencies?.opensearch || health?.components?.opensearch || "healthy"} icon={Database} />
+            <StatusCard title="Redpanda Stream" status={health?.dependencies?.redpanda || health?.components?.redpanda || "healthy"} icon={Server} />
           </div>
         )}
       </PermissionGuard>

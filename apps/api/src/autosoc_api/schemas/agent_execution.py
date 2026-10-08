@@ -62,7 +62,7 @@ class AgentExecutionResponse(AgentExecutionBase):
     prompt_version: Optional[str] = None
     tool_calls_count: int
     duration_seconds: Optional[int] = None
-    result_data: Optional[AgentResult] = None
+    result_data: Optional[Dict[str, Any]] = None
     failure_reason: Optional[str] = None
     trace_id: Optional[str] = None
     

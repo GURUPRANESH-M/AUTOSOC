@@ -1,11 +1,12 @@
 from typing import Any, List
+import uuid
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from pydantic import UUID4
-from datetime import datetime, UTC, timedelta
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from autosoc_api.api import dependencies
-from autosoc_api.auth.dependencies import get_current_principal, require_permission
+from autosoc_api.db.session import get_db_session
+from autosoc_api.auth.dependencies import get_current_principal, require_roles
 from autosoc_api.auth.models import Principal
 from autosoc_api.db.models.response import ResponseRecommendation, ResponseApproval, ResponseExecution
 from autosoc_api.schemas.response import (
@@ -13,16 +14,15 @@ from autosoc_api.schemas.response import (
     ResponseApprovalRequest, ResponseApprovalResponse, ResponseApprovalAction,
     ResponseExecutionCreate, ResponseExecutionResponse
 )
-# Redpanda / Event bus can be published to later for worker processing
 
 router = APIRouter()
 
 @router.post("/incidents/{incident_id}/responses", response_model=ResponseRecommendationResponse)
-def create_recommendation(
-    incident_id: UUID4,
+async def create_recommendation(
+    incident_id: uuid.UUID,
     recommendation_in: ResponseRecommendationCreate,
-    db: Session = Depends(dependencies.get_db),
-    current_user: Principal = Depends(require_permission("responses:recommend"))
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Principal = Depends(get_current_principal)
 ) -> Any:
     """
     Create a new response recommendation.
@@ -35,31 +35,37 @@ def create_recommendation(
         created_by=current_user.username
     )
     db.add(recommendation)
-    db.commit()
-    db.refresh(recommendation)
+    await db.commit()
+    await db.refresh(recommendation)
     return recommendation
 
 @router.get("/incidents/{incident_id}/responses", response_model=List[ResponseRecommendationResponse])
-def list_recommendations(
-    incident_id: UUID4,
-    db: Session = Depends(dependencies.get_db),
-    current_user: Principal = Depends(require_permission("responses:read"))
+async def list_recommendations(
+    incident_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Principal = Depends(get_current_principal)
 ) -> Any:
     """
     List response recommendations for an incident.
     """
-    return db.query(ResponseRecommendation).filter(ResponseRecommendation.incident_id == incident_id).all()
+    result = await db.execute(
+        select(ResponseRecommendation).where(ResponseRecommendation.incident_id == incident_id)
+    )
+    return result.scalars().all()
 
 @router.post("/responses/{recommendation_id}/request-approval", response_model=ResponseApprovalResponse)
-def request_approval(
-    recommendation_id: UUID4,
-    db: Session = Depends(dependencies.get_db),
-    current_user: Principal = Depends(require_permission("responses:recommend"))
+async def request_approval(
+    recommendation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Principal = Depends(get_current_principal)
 ) -> Any:
     """
     Request approval for a proposed recommendation.
     """
-    recommendation = db.query(ResponseRecommendation).filter(ResponseRecommendation.id == recommendation_id).first()
+    result = await db.execute(
+        select(ResponseRecommendation).where(ResponseRecommendation.id == recommendation_id)
+    )
+    recommendation = result.scalars().first()
     if not recommendation:
         raise HTTPException(status_code=404, detail="Recommendation not found")
         
@@ -74,114 +80,124 @@ def request_approval(
         requested_by=current_user.username
     )
     db.add(approval)
-    db.commit()
-    db.refresh(approval)
+    await db.commit()
+    await db.refresh(approval)
     return approval
 
 @router.post("/responses/{recommendation_id}/approve", response_model=ResponseApprovalResponse)
-def approve_recommendation(
-    recommendation_id: UUID4,
+async def approve_recommendation(
+    recommendation_id: uuid.UUID,
     action: ResponseApprovalAction,
-    db: Session = Depends(dependencies.get_db),
-    current_user: Principal = Depends(require_permission("responses:approve"))
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Principal = Depends(require_roles(["soc_analyst", "admin"]))
 ) -> Any:
     """
     Approve or reject a recommendation.
     """
-    recommendation = db.query(ResponseRecommendation).filter(ResponseRecommendation.id == recommendation_id).first()
+    rec_result = await db.execute(
+        select(ResponseRecommendation).where(ResponseRecommendation.id == recommendation_id)
+    )
+    recommendation = rec_result.scalars().first()
     if not recommendation:
         raise HTTPException(status_code=404, detail="Recommendation not found")
         
-    approval = db.query(ResponseApproval).filter(
-        ResponseApproval.recommendation_id == recommendation_id,
-        ResponseApproval.decision == "pending"
-    ).first()
+    app_result = await db.execute(
+        select(ResponseApproval).where(
+            ResponseApproval.recommendation_id == recommendation_id,
+            ResponseApproval.decision == "pending"
+        )
+    )
+    approval = app_result.scalars().first()
     
     if not approval:
         raise HTTPException(status_code=400, detail="No pending approval request found")
         
-    # Optional separation of duties check could go here
-    # if approval.requested_by == current_user.username:
-    #     raise HTTPException(status_code=403, detail="Requester cannot approve their own request")
-        
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     approval.decision = action.decision
     approval.reviewer = current_user.username
-    approval.decision_at = datetime.now(UTC)
+    approval.decision_at = now_utc
     approval.reason = action.reason
     
     if action.decision == "approved":
         recommendation.status = "approved"
-        # Set expiration to 60 minutes from now
-        approval.expiration = datetime.now(UTC) + timedelta(minutes=60)
+        approval.expiration = now_utc + timedelta(minutes=60)
     else:
         recommendation.status = "rejected"
         
-    db.commit()
-    db.refresh(approval)
+    await db.commit()
+    await db.refresh(approval)
     return approval
 
 @router.post("/responses/{recommendation_id}/execute", response_model=ResponseExecutionResponse)
-def execute_recommendation(
-    recommendation_id: UUID4,
+async def execute_recommendation(
+    recommendation_id: uuid.UUID,
     execution_in: ResponseExecutionCreate,
-    db: Session = Depends(dependencies.get_db),
-    current_user: Principal = Depends(require_permission("responses:execute"))
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Principal = Depends(require_roles(["soc_analyst", "admin"]))
 ) -> Any:
     """
     Execute a response (dry-run, simulation, analyst_approved_execution).
     """
-    recommendation = db.query(ResponseRecommendation).filter(ResponseRecommendation.id == recommendation_id).first()
+    rec_result = await db.execute(
+        select(ResponseRecommendation).where(ResponseRecommendation.id == recommendation_id)
+    )
+    recommendation = rec_result.scalars().first()
     if not recommendation:
         raise HTTPException(status_code=404, detail="Recommendation not found")
         
+    approval = None
     if execution_in.mode == "analyst_approved_execution":
         if recommendation.status != "approved":
             raise HTTPException(status_code=400, detail="Execution requires an approved recommendation")
             
-        approval = db.query(ResponseApproval).filter(
-            ResponseApproval.recommendation_id == recommendation_id,
-            ResponseApproval.decision == "approved"
-        ).first()
-        
-        if not approval or (approval.expiration and approval.expiration < datetime.now(UTC)):
+        app_result = await db.execute(
+            select(ResponseApproval).where(
+                ResponseApproval.recommendation_id == recommendation_id,
+                ResponseApproval.decision == "approved"
+            )
+        )
+        approval = app_result.scalars().first()
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        if not approval or (approval.expiration and approval.expiration < now_utc):
             raise HTTPException(status_code=400, detail="Valid unexpired approval required for execution")
     
-    # Check for idempotency / avoid duplicate executions
-    # In a full impl, idempotency key might be sent by the client, here we generate one or use standard pattern
     idempotency_key = f"{recommendation_id}_{execution_in.mode}"
     
-    existing = db.query(ResponseExecution).filter(ResponseExecution.idempotency_key == idempotency_key).first()
+    ex_result = await db.execute(
+        select(ResponseExecution).where(ResponseExecution.idempotency_key == idempotency_key)
+    )
+    existing = ex_result.scalars().first()
     if existing:
         return existing
         
     execution = ResponseExecution(
         recommendation_id=recommendation.id,
-        approval_id=approval.id if execution_in.mode == "analyst_approved_execution" else None,
+        approval_id=approval.id if approval else None,
         playbook_id=recommendation.playbook_id,
         action_type=recommendation.action_type,
         mode=execution_in.mode,
         target=recommendation.target_reference,
-        executor="pending", # To be filled by worker
+        executor="pending",
         idempotency_key=idempotency_key
     )
     db.add(execution)
-    db.commit()
-    db.refresh(execution)
-    
-    # NOTE: Here we would dispatch an event to `security.response.tasks` via Redpanda for the worker to pick up
-    # For MVP we can just enqueue it in DB, and let worker poll, or send Kafka event.
+    await db.commit()
+    await db.refresh(execution)
     return execution
 
 @router.post("/response-executions/{execution_id}/rollback")
-def rollback_execution(
-    execution_id: UUID4,
-    db: Session = Depends(dependencies.get_db),
-    current_user: Principal = Depends(require_permission("responses:execute"))
+async def rollback_execution(
+    execution_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: Principal = Depends(require_roles(["soc_analyst", "admin"]))
 ) -> Any:
     """
     Request rollback of a completed execution.
     """
-    execution = db.query(ResponseExecution).filter(ResponseExecution.id == execution_id).first()
+    result = await db.execute(
+        select(ResponseExecution).where(ResponseExecution.id == execution_id)
+    )
+    execution = result.scalars().first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
         
@@ -189,6 +205,5 @@ def rollback_execution(
         raise HTTPException(status_code=400, detail="Cannot rollback execution in current state")
         
     execution.status = "rollback_pending"
-    db.commit()
-    # Event dispatched to worker here
+    await db.commit()
     return {"message": "Rollback initiated"}

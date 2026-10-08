@@ -38,7 +38,7 @@ import {
   ShieldCheck,
   ShieldAlert,
 } from "lucide-react";
-import { useIncidentAgents } from "@/hooks/use-incidents";
+import { useIncidentAgents, useIncidents, IncidentResponse } from "@/hooks/use-incidents";
 import { useAgentExecution, useCancelAgentExecution } from "@/hooks/use-agents";
 import { useMe } from "@/hooks/use-me";
 import { formatDistanceToNow } from "date-fns";
@@ -81,6 +81,7 @@ const SYSTEM_AGENTS = [
 
 export default function AgentsPage() {
   const { data: currentUser } = useMe();
+  const { data: recentIncidents } = useIncidents(0, 5);
   const [incidentSearchId, setIncidentSearchId] = useState<string>("");
   const [activeIncidentId, setActiveIncidentId] = useState<string>("");
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
@@ -101,11 +102,20 @@ export default function AgentsPage() {
     currentUser?.roles?.includes("soc_analyst")
   );
 
+  const [searchValidationError, setSearchValidationError] = useState<string | null>(null);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (incidentSearchId.trim()) {
-      setActiveIncidentId(incidentSearchId.trim());
+    const cleaned = incidentSearchId.trim();
+    const isValidUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(cleaned);
+
+    if (!isValidUuid) {
+      setSearchValidationError("Please enter a valid 36-character Incident UUID (e.g. d0f1b7a3-ce57-429a-b2de-c9145dfd0272).");
+      return;
     }
+
+    setSearchValidationError(null);
+    setActiveIncidentId(cleaned);
   };
 
   return (
@@ -174,11 +184,42 @@ export default function AgentsPage() {
         </CardHeader>
 
         <CardContent className="p-4 space-y-6">
+          {/* Quick Incident Selector Bar */}
+          {recentIncidents && recentIncidents.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[10px] text-zinc-500 uppercase font-semibold">
+                Quick Select Recent Incident:
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {recentIncidents.map((inc: IncidentResponse) => (
+                  <button
+                    key={inc.id}
+                    onClick={() => {
+                      setIncidentSearchId(inc.id);
+                      setSearchValidationError(null);
+                      setActiveIncidentId(inc.id);
+                    }}
+                    className={`text-[10px] px-2.5 py-1 rounded border font-mono transition-colors ${
+                      activeIncidentId === inc.id
+                        ? "bg-indigo-950/40 border-indigo-500 text-indigo-300 font-bold"
+                        : "bg-zinc-950 border-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                    }`}
+                  >
+                    {inc.title} <span className="text-[9px] text-zinc-600">({inc.id.slice(0, 8)}...)</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSearchSubmit} className="flex gap-3 max-w-md">
             <Input
               placeholder="Enter Incident UUID..."
               value={incidentSearchId}
-              onChange={(e) => setIncidentSearchId(e.target.value)}
+              onChange={(e) => {
+                setIncidentSearchId(e.target.value);
+                if (searchValidationError) setSearchValidationError(null);
+              }}
               className="h-8 bg-zinc-950 border-zinc-900 text-xs font-mono focus:border-zinc-800"
             />
             <Button
@@ -190,6 +231,12 @@ export default function AgentsPage() {
               Search Runs
             </Button>
           </form>
+
+          {searchValidationError && (
+            <div className="text-[11px] text-amber-400 font-mono bg-amber-950/20 border border-amber-900/40 p-2.5 rounded max-w-md">
+              {searchValidationError}
+            </div>
+          )}
 
           {activeIncidentId && (
             <div className="space-y-4 pt-2">

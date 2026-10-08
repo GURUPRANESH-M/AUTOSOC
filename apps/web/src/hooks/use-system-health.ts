@@ -4,13 +4,14 @@ import { useSession } from "next-auth/react";
 
 export interface SystemHealth {
   status: string;
-  version: string;
-  environment: string;
-  dependencies: {
-    database: string;
-    redis: string;
-    opensearch: string;
-    redpanda: string;
+  version?: string;
+  environment?: string;
+  components?: Record<string, string>;
+  dependencies?: {
+    database?: string;
+    redis?: string;
+    opensearch?: string;
+    redpanda?: string;
   };
 }
 

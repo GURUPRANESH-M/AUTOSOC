@@ -9,10 +9,13 @@ import { EventSources } from "@/components/dashboard/event-sources";
 import { SecuritySummary } from "@/components/dashboard/security-summary";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
+import { purgeAllDatabaseRecords } from "@/lib/api/system";
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
   const {
     data: summary,
     isLoading,
@@ -22,8 +25,33 @@ export default function DashboardPage() {
     dataUpdatedAt,
   } = useDashboardSummary();
 
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = React.useState(false);
+  const [isPurging, setIsPurging] = React.useState(false);
+  const [purgeStatus, setPurgeStatus] = React.useState("");
+  const [purgeError, setPurgeError] = React.useState("");
+
   const handleRefresh = async () => {
     await refetch();
+  };
+
+  const handlePurgeDatabase = async () => {
+    setIsPurging(true);
+    setPurgeStatus("");
+    setPurgeError("");
+    try {
+      const res = await purgeAllDatabaseRecords();
+      setPurgeStatus(res.message || "Database successfully purged.");
+      await queryClient.invalidateQueries();
+      await refetch();
+      setTimeout(() => {
+        setIsPurgeModalOpen(false);
+        setPurgeStatus("");
+      }, 2000);
+    } catch (err: any) {
+      setPurgeError(err.message || "Failed to purge database records.");
+    } finally {
+      setIsPurging(false);
+    }
   };
 
   // 1. Loading State
@@ -81,7 +109,69 @@ export default function DashboardPage() {
   const categoriesCount = summary.categories?.length || 0;
 
   return (
-    <div className="space-y-6 font-mono">
+    <div className="space-y-6 font-mono relative">
+      {/* Purge Database Confirmation Modal */}
+      {isPurgeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-red-900/60 rounded-lg max-w-md w-full p-6 space-y-4 shadow-2xl font-mono">
+            <div className="flex items-center gap-3 text-red-500">
+              <div className="p-2 bg-red-950/50 border border-red-900/60 rounded-full shrink-0">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-red-400">Purge All Database Records?</h3>
+                <p className="text-[11px] text-zinc-400">Irreversible System Reset</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              This action will permanently delete all <strong className="text-white">Incidents, Alerts, Predictions, and OpenSearch Log Events</strong> from PostgreSQL and OpenSearch.
+            </p>
+
+            {purgeStatus && (
+              <div className="p-3 bg-emerald-950/20 border border-emerald-900/40 rounded text-emerald-400 text-xs">
+                {purgeStatus}
+              </div>
+            )}
+
+            {purgeError && (
+              <div className="p-3 bg-red-950/20 border border-red-900/40 rounded text-red-400 text-xs">
+                {purgeError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-zinc-900">
+              <Button
+                variant="outline"
+                onClick={() => setIsPurgeModalOpen(false)}
+                disabled={isPurging}
+                className="h-8 border-zinc-800 bg-zinc-900 text-zinc-300 text-xs"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                onClick={handlePurgeDatabase}
+                disabled={isPurging}
+                className="h-8 bg-red-650 hover:bg-red-700 text-white text-xs font-bold px-4"
+              >
+                {isPurging ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    Purging All Records...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                    Confirm Purge
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-zinc-900 pb-4">
         <div>
@@ -93,9 +183,9 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {dataUpdatedAt && (
-            <div className="text-[10px] text-zinc-600 text-right">
+            <div className="text-[10px] text-zinc-600 text-right mr-2">
               {isFetching ? (
                 <span className="text-zinc-500 animate-pulse">Synchronizing stream...</span>
               ) : (
@@ -112,6 +202,15 @@ export default function DashboardPage() {
           >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin text-indigo-400" : ""}`} />
             Refresh
+          </Button>
+
+          <Button
+            onClick={() => setIsPurgeModalOpen(true)}
+            variant="outline"
+            className="h-8 border-red-900/60 bg-red-950/20 hover:bg-red-900/30 text-red-400 hover:text-red-300 text-xs px-3"
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Purge Database
           </Button>
         </div>
       </div>

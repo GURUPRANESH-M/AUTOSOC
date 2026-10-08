@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from uuid import UUID
 
@@ -15,7 +15,7 @@ class IncidentBase(BaseModel):
     last_seen: Optional[datetime] = None
     alert_count: int = 0
     event_count: int = 0
-    primary_entities: Optional[List[Dict[str, Any]]] = []
+    primary_entities: Optional[List[Union[Dict[str, Any], str]]] = []
     tags: Optional[List[str]] = []
     correlation_rule_ids: Optional[List[str]] = []
     candidate_mitre_references: Optional[List[str]] = []

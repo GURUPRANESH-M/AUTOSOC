@@ -29,6 +29,8 @@ import {
   Calendar,
   Layers,
 } from "lucide-react";
+
+import { getMitreTitle } from "@/lib/mitre-utils";
 import { useIncidents, IncidentResponse } from "@/hooks/use-incidents";
 import { useLatestPrediction, useAllPredictions, useRecomputePrediction } from "@/hooks/use-predictions";
 import { useMe } from "@/hooks/use-me";
@@ -39,6 +41,13 @@ export default function PredictionsPage() {
   const { data: incidentsData, isLoading: isIncidentsLoading, isError: isIncidentsError, refetch: refetchIncidents } = useIncidents(0, 100);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Automatically select the first incident when data loads
+  React.useEffect(() => {
+    if (!selectedIncidentId && incidentsData && incidentsData.length > 0) {
+      setSelectedIncidentId(incidentsData[0].id);
+    }
+  }, [incidentsData, selectedIncidentId]);
 
   const selectedIncident = incidentsData?.find((i: IncidentResponse) => i.id === selectedIncidentId);
 
@@ -352,10 +361,15 @@ export default function PredictionsPage() {
                                 latestPrediction.observed_techniques?.map((tech) => (
                                   <div
                                     key={tech}
-                                    className="flex items-center gap-2 bg-zinc-900/40 border border-zinc-900/50 px-2 py-1.5 rounded text-[11px] text-zinc-300 font-mono"
+                                    className="flex items-center justify-between bg-zinc-900/40 border border-zinc-900/50 px-2.5 py-1.5 rounded text-[11px] text-zinc-300 font-mono"
                                   >
-                                    <span className="text-zinc-650 font-bold shrink-0">CODE:</span>
-                                    <span className="text-zinc-200">{tech}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-zinc-500 font-bold shrink-0">CODE:</span>
+                                      <span className="text-zinc-200">{tech}</span>
+                                    </div>
+                                    <span className="text-[10px] text-zinc-400 font-sans font-medium">
+                                      {getMitreTitle(tech)}
+                                    </span>
                                   </div>
                                 ))
                               )}
@@ -377,7 +391,12 @@ export default function PredictionsPage() {
                                     className="border border-zinc-900 bg-zinc-950 p-3 rounded space-y-2"
                                   >
                                     <div className="flex items-center justify-between">
-                                      <span className="font-bold text-[11px] text-indigo-400">{pred.technique_id}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-[11px] text-indigo-400 font-mono">{pred.technique_id}</span>
+                                        <span className="text-[10px] text-zinc-300 font-sans font-semibold">
+                                          ({getMitreTitle(pred.technique_id)})
+                                        </span>
+                                      </div>
                                       {pred.probability !== undefined && (
                                         <span className="text-[10px] font-bold text-zinc-300 font-mono">
                                           {(pred.probability * 100).toFixed(0)}% Probability
@@ -415,19 +434,24 @@ export default function PredictionsPage() {
                             Multi-Step Path Continuation Forecast
                           </div>
                           <div className="flex flex-wrap items-center gap-3 bg-zinc-950/20 border border-zinc-900 rounded p-4 overflow-x-auto">
-                            <div className="flex items-center gap-2 bg-zinc-900/50 px-2.5 py-1.5 border border-zinc-800 rounded">
-                              <Activity className="h-3.5 w-3.5 text-zinc-650 shrink-0" />
-                              <span className="text-[11px] font-bold text-zinc-450 uppercase">Current Stage</span>
+                            <div className="flex items-center gap-2 bg-zinc-900/50 px-2.5 py-2 border border-zinc-800 rounded">
+                              <Activity className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                              <span className="text-[11px] font-bold text-zinc-300 uppercase">Current Stage</span>
                             </div>
 
                             {latestPrediction.path_continuation.map((step, idx) => (
                               <React.Fragment key={idx}>
                                 <ArrowRight className="h-4.5 w-4.5 text-zinc-700 shrink-0" />
-                                <div className="flex items-center gap-2 bg-zinc-950 px-2.5 py-1.5 border border-zinc-900 rounded">
-                                  <span className="text-[9px] font-bold text-indigo-400 shrink-0 font-mono">
-                                    Step {idx + 1}
+                                <div className="flex flex-col bg-zinc-950 px-3 py-1.5 border border-zinc-900 rounded">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-bold text-indigo-400 shrink-0 font-mono">
+                                      Step {idx + 1}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-zinc-200 font-mono">{step}</span>
+                                  </div>
+                                  <span className="text-[10px] text-zinc-400 font-sans font-medium mt-0.5">
+                                    {getMitreTitle(step)}
                                   </span>
-                                  <span className="text-[11px] font-bold text-zinc-300 font-mono">{step}</span>
                                 </div>
                               </React.Fragment>
                             ))}

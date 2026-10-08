@@ -8,12 +8,14 @@ from autosoc_api.db.models.incident_note import IncidentNote
 from autosoc_api.db.models.incident_timeline import IncidentTimeline
 from autosoc_api.schemas.incident import IncidentBase, IncidentUpdate, IncidentNoteCreate
 
+from sqlalchemy import desc
+
 class IncidentService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> List[Incident]:
-        result = await self.db.execute(select(Incident).offset(skip).limit(limit))
+        result = await self.db.execute(select(Incident).order_by(desc(Incident.created_at)).offset(skip).limit(limit))
         return list(result.scalars().all())
 
     async def get_by_id(self, incident_id: uuid.UUID) -> Incident:

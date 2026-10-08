@@ -13,8 +13,8 @@ router = APIRouter()
 
 @router.get("/", response_model=List[IncidentResponse])
 async def list_incidents(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    skip: int = 0,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db_session)
 ):
     service = IncidentService(db)
@@ -37,6 +37,16 @@ async def update_status(
     service = IncidentTransitionService(db)
     return await service.update_status(incident_id, status, user_id, reason)
 
+from autosoc_api.db.models.alert import Alert
+from autosoc_api.schemas.alert import AlertResponse
+from sqlalchemy import select
+
+@router.get("/{incident_id}/alerts", response_model=List[AlertResponse])
+async def get_incident_alerts(incident_id: uuid.UUID, db: AsyncSession = Depends(get_db_session)):
+    stmt = select(Alert).where(Alert.incident_id == incident_id)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
 @router.get("/{incident_id}/notes", response_model=List[IncidentNoteResponse])
 async def get_notes(incident_id: uuid.UUID, db: AsyncSession = Depends(get_db_session)):
     service = IncidentService(db)
@@ -48,7 +58,6 @@ async def create_note(
     note: IncidentNoteCreate,
     db: AsyncSession = Depends(get_db_session)
 ):
-    # Mock user_id for now
     user_id = "system"
     service = IncidentService(db)
     return await service.create_note(incident_id, note, user_id)

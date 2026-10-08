@@ -3,7 +3,8 @@ from typing import Dict, Any
 
 class HealthResponse(BaseModel):
     status: str
-    components: Dict[str, str]
+    components: Dict[str, str] = {}
+    dependencies: Dict[str, str] = {}
 
 class VersionResponse(BaseModel):
     app_name: str

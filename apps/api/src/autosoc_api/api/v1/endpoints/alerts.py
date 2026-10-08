@@ -7,16 +7,20 @@ from uuid import UUID
 from autosoc_api.db.session import get_db_session
 from autosoc_api.db.models.alert import Alert
 from autosoc_api.schemas.alert import AlertResponse, AlertUpdate
-from autosoc_api.auth.dependencies import require_roles
+from autosoc_api.auth.dependencies import get_current_principal, require_roles
 from autosoc_api.auth.models import Principal
 from autosoc_api.audit.audit_service import audit_log
 
 router = APIRouter()
 
+import uuid
+from datetime import datetime, timezone
+from autosoc_api.db.models.incident import Incident
+
 @router.get("/", response_model=List[AlertResponse])
 async def list_alerts(
     db: AsyncSession = Depends(get_db_session),
-    user: Principal = Depends(require_roles(["soc_analyst", "admin", "security_manager", "auditor"])),
+    user: Principal = Depends(get_current_principal),
     status: Optional[str] = None,
     severity: Optional[str] = None,
     limit: int = Query(100, le=1000),
@@ -29,13 +33,14 @@ async def list_alerts(
         stmt = stmt.where(Alert.severity == severity)
         
     result = await db.execute(stmt)
-    return result.scalars().all()
+    alerts = result.scalars().all()
+    return alerts
 
 @router.get("/{alert_id}", response_model=AlertResponse)
 async def get_alert(
     alert_id: UUID,
     db: AsyncSession = Depends(get_db_session),
-    user: Principal = Depends(require_roles(["soc_analyst", "admin", "security_manager", "auditor"]))
+    user: Principal = Depends(get_current_principal)
 ):
     stmt = select(Alert).where(Alert.id == alert_id)
     result = await db.execute(stmt)

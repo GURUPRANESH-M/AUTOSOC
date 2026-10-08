@@ -65,8 +65,16 @@ export default function ProfilePage() {
           <div className="pt-4 border-t border-zinc-800">
             <Button
               variant="destructive"
-              className="bg-red-950/50 text-red-500 hover:bg-red-900 hover:text-red-100 border border-red-900/50"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="bg-red-950/50 text-red-500 hover:bg-red-900 hover:text-red-100 border border-red-900/50 cursor-pointer"
+              onClick={async () => {
+                try {
+                  await signOut({ redirect: false });
+                } catch {
+                  // ignore client error
+                } finally {
+                  window.location.href = "/api/auth/logout";
+                }
+              }}
             >
               <LogOut className="mr-2 h-4 w-4" /> Sign Out
             </Button>
