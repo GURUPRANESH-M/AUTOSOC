@@ -2,6 +2,7 @@ import socket
 import struct
 import json
 import time
+# pyrefly: ignore [missing-import]
 import httpx
 import uuid
 import sys
@@ -9,7 +10,7 @@ from datetime import datetime, timezone
 import random
 
 # Target AutoSOC Ingestion API
-API_URL = "http://localhost:8000/api/v1/events/seed"
+API_URL = "http://localhost:8000/api/v1/events/packet"
 
 def get_protocol_name(proto_num):
     protocols = {1: "ICMP", 6: "TCP", 17: "UDP"}
@@ -66,14 +67,20 @@ def run_sniffer():
 
             print(f"[{packet_count}] Captured Live Packet: {src_ip}:{src_port} -> {dst_ip}:{dst_port} ({protocol})")
 
-            # Periodically stream seed batch to AutoSOC
-            if packet_count % 5 == 0:
-                try:
-                    resp = client.post(API_URL)
-                    if resp.status_code == 200:
-                        print(f"  └─► [LIVE SOC INGESTED] Processed into OpenSearch & PostgreSQL")
-                except Exception:
-                    pass
+            # Stream real live packet directly to AutoSOC
+            try:
+                payload = {
+                    "source_ip": src_ip,
+                    "destination_ip": dst_ip,
+                    "source_port": src_port,
+                    "destination_port": dst_port,
+                    "protocol": protocol,
+                }
+                resp = client.post(API_URL, json=payload)
+                if resp.status_code == 200:
+                    print(f"  └─► [LIVE SOC INGESTED] Processed {src_ip} -> {dst_ip} into OpenSearch")
+            except Exception:
+                pass
 
             time.sleep(0.3)
 
@@ -106,9 +113,16 @@ def run_fallback_live_generator(client=None):
 
         # Push to AutoSOC API
         try:
-            resp = client.post(API_URL)
+            payload = {
+                "source_ip": src,
+                "destination_ip": dst,
+                "source_port": random.randint(1024, 65535),
+                "destination_port": port,
+                "protocol": proto,
+            }
+            resp = client.post(API_URL, json=payload)
             if resp.status_code == 200:
-                print(f"     └─► [LIVE SOC INGESTED] Processed into OpenSearch & PostgreSQL")
+                print(f"     └─► [LIVE SOC INGESTED] Processed {src} -> {dst} into OpenSearch")
         except Exception as err:
             print(f"     └─► Ingestion error: {err}")
 

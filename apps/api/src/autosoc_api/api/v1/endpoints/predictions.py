@@ -20,71 +20,15 @@ async def compute_and_save_prediction(incident: Incident, db: AsyncSession) -> P
     Computes an attack progression prediction using Markov chain sequence transition rules
     and persists it into the predictions PostgreSQL database.
     """
-    title_lower = incident.title.lower() if incident.title else ""
+    # Invoke Markov Chain Sequence Transition Predictor
+    from autosoc_api.services.markov_predictor import markov_predictor
+    pred_data = markov_predictor.predict_attack_progression(incident.title or "Security Event")
     
-    if "powershell" in title_lower or "script" in title_lower:
-        observed = ["T1059.001", "T1027"]
-        predicted_next = [
-            {
-                "technique_id": "T1003.001",
-                "predicted_tactic": "Credential Access",
-                "probability": 0.84,
-                "defensive_recommendation": "Dump LSASS protection check; isolate host and restrict privilege elevation."
-            },
-            {
-                "technique_id": "T1021.002",
-                "predicted_tactic": "Lateral Movement",
-                "probability": 0.72,
-                "defensive_recommendation": "Block SMB inbound traffic (Port 445) and audit Remote Desktop credentials."
-            },
-            {
-                "technique_id": "T1041",
-                "predicted_tactic": "Exfiltration",
-                "probability": 0.58,
-                "defensive_recommendation": "Enable egress bandwidth monitoring and inspect outgoing TLS/HTTPS streams."
-            }
-        ]
-        path_continuation = ["T1059.001", "T1027", "T1003.001", "T1021.002", "T1041"]
-        target = {"target_type": "Host Infrastructure", "target_entity": "Domain Controller / server-01"}
-        risk_score = 0.88
-    elif "login" in title_lower or "auth" in title_lower or "failed" in title_lower:
-        observed = ["T1110.001", "T1078"]
-        predicted_next = [
-            {
-                "technique_id": "T1068",
-                "predicted_tactic": "Privilege Escalation",
-                "probability": 0.79,
-                "defensive_recommendation": "Enforce MFA immediately and lock targeted user account for 30 minutes."
-            },
-            {
-                "technique_id": "T1083",
-                "predicted_tactic": "Discovery",
-                "probability": 0.65,
-                "defensive_recommendation": "Restrict local directory browsing and monitor active LDAP queries."
-            }
-        ]
-        path_continuation = ["T1110.001", "T1078", "T1068", "T1083"]
-        target = {"target_type": "Identity Provider", "target_entity": "Active Directory / Keycloak"}
-        risk_score = 0.75
-    else:
-        observed = ["T1046", "T1021.001"]
-        predicted_next = [
-            {
-                "technique_id": "T1059",
-                "predicted_tactic": "Execution",
-                "probability": 0.81,
-                "defensive_recommendation": "Block remote service connection from untrusted IP and apply network segmentation."
-            },
-            {
-                "technique_id": "T1486",
-                "predicted_tactic": "Impact",
-                "probability": 0.62,
-                "defensive_recommendation": "Verify offline backup snapshots and enable immutable file storage policies."
-            }
-        ]
-        path_continuation = ["T1046", "T1021.001", "T1059", "T1486"]
-        target = {"target_type": "Network Subnet", "target_entity": "DMZ / Web Servers"}
-        risk_score = 0.82
+    observed = pred_data["observed_techniques"]
+    predicted_next = pred_data["predicted_next_techniques"]
+    target = pred_data["predicted_target"]
+    path_continuation = pred_data["path_continuation"]
+    risk_score = pred_data["escalation_risk_score"]
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     prediction = Prediction(

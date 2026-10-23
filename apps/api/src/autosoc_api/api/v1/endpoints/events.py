@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from autosoc_api.core.config import settings
 from autosoc_api.ml.service import MLDetectionService
 from autosoc_schemas.events.normalized import NormalizedSecurityEvent
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, Body
 import httpx
 
 router = APIRouter()
@@ -568,6 +568,55 @@ async def seed_internal_logs(
     }
 
 
+@router.post("/packet", response_model=Dict[str, Any])
+async def ingest_live_packet(
+    data: Dict[str, Any] = Body(...),
+    client: httpx.AsyncClient = Depends(get_opensearch_client),
+) -> Dict[str, Any]:
+    """
+    Ingest a real live captured network packet from the sniffer into OpenSearch.
+    """
+    now_utc = datetime.now(timezone.utc)
+    norm_id = uuid.uuid4()
+    ingestion_id = uuid.uuid4()
+    index_name = "autosoc-events-v1-live"
+
+    src_ip = str(data.get("source_ip", "127.0.0.1"))
+    dst_ip = str(data.get("destination_ip", "127.0.0.1"))
+    src_port = int(data.get("source_port", 0))
+    dst_port = int(data.get("destination_port", 0))
+    protocol = str(data.get("protocol", "TCP")).upper()
+
+    doc = {
+        "event_id": str(norm_id),
+        "normalized_event_id": str(norm_id),
+        "ingestion_id": str(ingestion_id),
+        "source_id": "live-network-sniffer",
+        "source_type": "network",
+        "schema_version": 1,
+        "event_time": now_utc.isoformat(),
+        "received_at": now_utc.isoformat(),
+        "normalized_at": now_utc.isoformat(),
+        "event_category": "network",
+        "event_type": f"{protocol.lower()}_flow",
+        "event_outcome": "success",
+        "message": f"Real-time Packet Flow: {src_ip}:{src_port} -> {dst_ip}:{dst_port} ({protocol})",
+        "source_ip": src_ip,
+        "destination_ip": dst_ip,
+        "destination_port": dst_port,
+        "username": "SYSTEM",
+        "hostname": "Live-Network-Interface"
+    }
+
+    try:
+        resp = await client.post(f"/{index_name}/_doc/{norm_id}", json=doc)
+        resp.raise_for_status()
+        await client.post(f"/{index_name}/_refresh")
+        return {"status": "ingested", "event_id": str(norm_id), "source_ip": src_ip}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to index live packet: {e}")
+
+
 @router.post("/detect", response_model=Dict[str, Any])
 async def detect_anomalies(
     limit: int = Query(100, ge=2, le=1000),
@@ -606,6 +655,82 @@ async def detect_anomalies(
 
         # Train and detect anomalies
         result = ml_service.train_and_detect(events)
+
+        # Automatically escalate detected ML anomalies into Alerts, Incidents, and Attack Progression Predictions
+        anomalies = [p for p in result.get("predictions", []) if p.get("is_anomaly")]
+        if anomalies:
+            try:
+                from autosoc_api.db.session import AsyncSessionLocal
+                from autosoc_api.db.models.incident import Incident, IncidentSeverity, IncidentStatus
+                from autosoc_api.db.models.alert import Alert, AlertSeverity, AlertStatus
+                from autosoc_api.api.v1.endpoints.predictions import compute_and_save_prediction
+                
+                now_utc = datetime.now(timezone.utc)
+                max_score = max(a.get("anomaly_score", 60.0) for a in anomalies)
+                sev = IncidentSeverity.CRITICAL if max_score >= 80 else IncidentSeverity.HIGH
+                
+                # Identify entities from anomalous events
+                event_map = {str(e.get("normalized_event_id") or e.get("event_id")): e for e in events}
+                primary_ips = set()
+                sample_msgs = []
+                for a in anomalies[:5]:
+                    e = event_map.get(a["event_id"], {})
+                    if e.get("source_ip"):
+                        primary_ips.add(e["source_ip"])
+                    if e.get("destination_ip"):
+                        primary_ips.add(e["destination_ip"])
+                    if e.get("message"):
+                        sample_msgs.append(e["message"])
+
+                primary_entities = [{"name": ip, "type": "ip"} for ip in list(primary_ips)[:5]]
+                first_ip = list(primary_ips)[0] if primary_ips else "Internal Network"
+                title = f"Zero-Day Anomaly Detection: Outlier Activity ({first_ip})"
+                desc = f"Isolation Forest ML engine flagged {len(anomalies)} anomalous pattern deviations exceeding risk threshold. Maximum anomaly score: {max_score}/100. Sample telemetry: {'; '.join(sample_msgs[:2])}"
+                
+                async with AsyncSessionLocal() as db_session:
+                    new_incident = Incident(
+                        id=uuid.uuid4(),
+                        title=title,
+                        description=desc,
+                        severity=sev,
+                        status=IncidentStatus.NEW,
+                        risk_score=float(max_score),
+                        first_seen=now_utc,
+                        last_seen=now_utc,
+                        alert_count=len(anomalies),
+                        event_count=len(events),
+                        primary_entities=primary_entities,
+                        candidate_mitre_references=["T1059.001", "T1003.001", "T1021.002"],
+                        tags=["ml-anomaly", "zero-day", "isolation-forest"],
+                        created_at=now_utc,
+                        updated_at=now_utc
+                    )
+                    db_session.add(new_incident)
+                    await db_session.flush()
+
+                    for a in anomalies[:20]:
+                        a_score = a.get("anomaly_score", 50.0)
+                        a_sev = AlertSeverity.CRITICAL if a_score >= 80 else AlertSeverity.HIGH
+                        e = event_map.get(a["event_id"], {})
+                        
+                        new_alert = Alert(
+                            id=uuid.uuid4(),
+                            incident_id=new_incident.id,
+                            title=f"ML Anomaly Alert: Pattern Deviation (Score {a_score})",
+                            description=f"Isolation Forest flagged outlier event {a['event_id']}. Decision score: {a.get('model_score')}. {e.get('message', '')}",
+                            severity=a_sev,
+                            status=AlertStatus.NEW,
+                            source_event_id=str(a["event_id"]),
+                            created_at=now_utc,
+                            updated_at=now_utc
+                        )
+                        db_session.add(new_alert)
+
+                    # Automatically generate Markov Chain ATT&CK Attack Progression Prediction
+                    await compute_and_save_prediction(new_incident, db_session)
+                    await db_session.commit()
+            except Exception as auto_err:
+                print("Notice: Auto-escalation of anomalies to incident:", auto_err)
 
         return result
 
