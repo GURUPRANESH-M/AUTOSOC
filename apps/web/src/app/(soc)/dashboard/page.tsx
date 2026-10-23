@@ -6,7 +6,6 @@ import { DashboardMetrics } from "@/components/dashboard/dashboard-metrics";
 import { EventTimeline } from "@/components/dashboard/event-timeline";
 import { EventCategories } from "@/components/dashboard/event-categories";
 import { EventSources } from "@/components/dashboard/event-sources";
-import { SecuritySummary } from "@/components/dashboard/security-summary";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, RefreshCw, Trash2, AlertTriangle, Loader2 } from "lucide-react";
@@ -235,13 +234,6 @@ export default function DashboardPage() {
         {/* Event Sources */}
         <EventSources sources={summary.sources || []} />
       </div>
-
-      {/* Diagnostic Coverage Summary */}
-      <SecuritySummary
-        totalEvents24h={totalEvents}
-        sourcesCount={sourcesCount}
-        categoriesCount={categoriesCount}
-      />
     </div>
   );
 }
