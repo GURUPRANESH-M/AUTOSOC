@@ -44,10 +44,6 @@ const routes = [
   { href: "/incidents", label: "Incidents", icon: ShieldAlert },
   { href: "/predictions", label: "Predictions", icon: BrainCircuit },
   { href: "/detection", label: "Detection", icon: Shield },
-  { href: "/data-sources", label: "Data Sources", icon: Database },
-  { href: "/agents", label: "Agents", icon: Cpu },
-  { href: "/rules", label: "Rules", icon: Braces },
-  { href: "/system-health", label: "System Health", icon: Activity },
 ];
 
 const adminRoutes = [

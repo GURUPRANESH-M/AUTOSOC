@@ -17,8 +17,6 @@ import { Input } from "@/components/ui/input";
 import { SeverityBadge, StatusIndicator } from "@/components/ui/soc-indicators";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCorrelationPanel } from "@/components/incidents/alert-correlation-panel";
-import { PredictionPanel } from "@/components/incidents/prediction-panel";
-import { AgentInvestigationPanel } from "@/components/incidents/agent-investigation-panel";
 import { ResponsePanel } from "@/components/incidents/response-panel";
 import { ArrowLeft, AlertCircle, RefreshCw, Send, ShieldAlert, Clock, User, MessageSquare } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -287,9 +285,7 @@ export default function IncidentDetailPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="bg-zinc-950 border border-zinc-900 p-1 flex overflow-x-auto h-auto max-w-full justify-start rounded-lg">
           <TabsTrigger value="overview" className="text-xs font-mono py-1.5 px-3">Overview</TabsTrigger>
-          <TabsTrigger value="agents" className="text-xs font-mono py-1.5 px-3">AI Agent Investigation</TabsTrigger>
           <TabsTrigger value="alerts" className="text-xs font-mono py-1.5 px-3">Correlated Alerts</TabsTrigger>
-          <TabsTrigger value="prediction" className="text-xs font-mono py-1.5 px-3">Attack Progression</TabsTrigger>
           <TabsTrigger value="notes" className="text-xs font-mono py-1.5 px-3">Analyst Notes</TabsTrigger>
           <TabsTrigger value="responses" className="text-xs font-mono py-1.5 px-3">Response Actions</TabsTrigger>
         </TabsList>
@@ -393,16 +389,7 @@ export default function IncidentDetailPage() {
           </div>
         </TabsContent>
 
-        {/* Tab 2: AI Agent Investigation */}
-        <TabsContent value="agents">
-          <Card className="bg-zinc-950 border-zinc-900 shadow-none">
-            <CardContent className="pt-6">
-              <AgentInvestigationPanel incidentId={incidentId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 3: Correlated Alerts */}
+        {/* Correlated Alerts */}
         <TabsContent value="alerts">
           <Card className="bg-zinc-950 border-zinc-900 shadow-none">
             <CardContent className="pt-6">
@@ -411,12 +398,7 @@ export default function IncidentDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab 4: Attack Prediction */}
-        <TabsContent value="prediction">
-          <PredictionPanel incidentId={incidentId} />
-        </TabsContent>
-
-        {/* Tab 5: Analyst Notes */}
+        {/* Analyst Notes */}
         <TabsContent value="notes" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Timeline Area */}
